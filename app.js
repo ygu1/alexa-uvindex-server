@@ -8,13 +8,14 @@ import path from 'path';
 import Alexa from 'alexa-app';
 import lessMiddleware from 'less-middleware';
 import index from './routes/index';
+import privacy from './routes/privacy';
 
 const app = express();
 const debug = Debug('alexa-uvindex:app');
 const alexaApp = new Alexa.app('uvindex');
 alexaApp.express({
   expressApp: app,
-  checkCert: false,
+  checkCert: true,
   debug: true
 });
 
@@ -37,6 +38,7 @@ app.use(lessMiddleware(path.join(__dirname, 'public')));
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.use('/', index);
+app.use('/privacy', privacy);
 
 // catch 404 and forward to error handler
 app.use((req, res, next) => {
