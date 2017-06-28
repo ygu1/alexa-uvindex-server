@@ -48,7 +48,6 @@ module.exports = (alexaApp) => {
       'what will the uv index be {names|NAME}'
     ]
   }, async (req, res) => {
-    const timeWord = req.slot('NAME');
     const userId = req.getSession().details.userId;
     if (_.isEmpty(userSession[userId])) {
       res.say('Please launch the sun proof to get your location first.');
@@ -56,20 +55,10 @@ module.exports = (alexaApp) => {
       return res.send();
     }
     try {
-      let time = 'current';
-      if (timeWord === 'tomorrow') {
-        time = new Date(new Date().getTime() + 24 * 60 * 60 * 1000);
-      }
       const zipcode = userSession[userId];
-      const location = await serviceModel.zipToGeo(zipcode);
-      const uvindex = await serviceModel.getUvIndex(location.lat, location.lng, time);
+      const uvindex = await serviceModel.getUvIndexByZip(zipcode);
       const keyWord = serviceModel.uvIndexCheck(uvindex);
-      if (timeWord === 'tomorrow') {
-        res.say(`For zipcode ${zipcode}, tomorrow, the max uv index will be ${uvindex.toFixed(1)}.`);
-        res.say(keyWord.keyWord);
-        return res.send();
-      }
-      res.say(`For zipcode ${zipcode}, today, the max uv index is ${uvindex.toFixed(1)}.`).send();
+      res.say(`For zipcode ${zipcode}, now, the uv index is ${uvindex}.`).send();
       res.say(keyWord.keyWord);
       return res.send();
     } catch (e) {
@@ -92,12 +81,10 @@ module.exports = (alexaApp) => {
       return res.send();
     }
     try {
-      const time = 'current';
       const zipcode = userSession[userId];
-      const location = await serviceModel.zipToGeo(zipcode);
-      const uvindex = await serviceModel.getUvIndex(location.lat, location.lng, time);
+      const uvindex = await serviceModel.getUvIndexByZip(zipcode);
       const suggestions = serviceModel.uvIndexCheck(uvindex).suggestion;
-      res.say(`for uv index ${uvindex.toFixed(1)}, there are ${suggestions.length + 1} suggestions.`);
+      res.say(`for uv index ${uvindex}, there are ${suggestions.length + 1} suggestions.`);
       for (let i = 0; i < suggestions.length; i += 1) {
         res.say(`${i + 1}. ${suggestions[i]}`);
       }
@@ -120,7 +107,7 @@ module.exports = (alexaApp) => {
 
   alexaApp.intent('AMAZON.HelpIntent', (request, response) => {
     response.say('there are the tips how to use sun proof.');
-    response.say('if you want to know today\'s uv index , for example, you can say: what\'s the uv index today.');
+    response.say('if you want to know today\'s uv index , for example, you can say: what\'s the uv index now.');
     response.say('if you want to get some protection tips, for example, you can say: give me some protection tips.');
     response.say('what can i do for you now?');
     return response.shouldEndSession(false).send();
