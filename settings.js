@@ -3,6 +3,10 @@ module.exports = {
   weatherkey: process.env.weatherkey,
   weather: {
     url: 'http://api.wunderground.com/api/',
-    key: process.env.weatherApiKey
+    key: process.env.weatherApiKey || ''
+  },
+  dynamodb: {
+    region: 'us-east-1',
+    tableName: 'uvindex'
   }
 };

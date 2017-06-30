@@ -1,0 +1,6 @@
+{
+    "uid": "alexa-uvindex",
+    "append": true,
+    "watch": true,
+    "script": "./bin/start"
+}

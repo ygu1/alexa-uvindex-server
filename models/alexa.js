@@ -1,40 +1,49 @@
 import _ from 'underscore';
-import * as serviceModel from './service';
-
-const userSession = {};
+import serviceModel from './service';
 
 module.exports = (alexaApp) => {
   alexaApp.launch(async (req, res) => {
-    if (_.isEmpty(req.context) || _.isEmpty(req.context.System)) {
-      res.say('Can not get your zipcode, please run it on a real device.');
-      return res.send();
-    }
-    if (_.isEmpty(req.context.System.user.permissions)) {
-      res.say('please approve sun proof to get your device postal code.');
-      res.say('you can find the permission card in your alexa app.');
-      res.card({
-        type: 'AskForPermissionsConsent',
-        permissions: [
-          'read::alexa:device:all:address:country_and_postal_code'
-        ]
-      });
-      return res.send();
-    }
-    const userId = req.context.System.user.userId;
-    const consentToken = req.context.System.user.permissions.consentToken;
-    const deviceId = req.context.System.device.deviceId;
-    const apiEndpoint = req.context.System.apiEndpoint;
+    let userDetail = {};
+    let zipcode = '';
+    const userId = req.getSession().details.userId;
     try {
-      const zipcode = await serviceModel.getZip(apiEndpoint, consentToken, deviceId);
-      userSession[userId] = zipcode;
-      res.say(`sun proof has been launched. your zipcode is ${zipcode}.`);
-      res.say('you can ask the uv index now. for example, you can say, what\'s the uv index now.');
-      res.shouldEndSession(false, 'you can ask the uv index now. for example, you can say, what\'s the uv index now.');
-      return res.send();
+      userDetail = await serviceModel.getItemByUserId(userId);
     } catch (e) {
       console.log(e);
-      return res.say('I can not get your zipcode now, please try it later.').send();
     }
+    if (_.isEmpty(userDetail)) {
+      if (_.isEmpty(req.context) || _.isEmpty(req.context.System)) {
+        res.say('Can not get your zipcode, please run it on a real device.');
+        return res.send();
+      }
+      if (_.isEmpty(req.context.System.user.permissions)) {
+        res.say('please approve sun proof to get your device postal code.');
+        res.say('you can find the permission card in your alexa app.');
+        res.card({
+          type: 'AskForPermissionsConsent',
+          permissions: [
+            'read::alexa:device:all:address:country_and_postal_code'
+          ]
+        });
+        return res.send();
+      }
+      const consentToken = req.context.System.user.permissions.consentToken;
+      const deviceId = req.context.System.device.deviceId;
+      const apiEndpoint = req.context.System.apiEndpoint;
+      try {
+        zipcode = await serviceModel.getZip(apiEndpoint, consentToken, deviceId);
+        await serviceModel.putItem({ userId, zipcode });
+      } catch (e) {
+        console.log(e);
+        return res.say('I can not get your zipcode now, please try it later.').send();
+      }
+    } else {
+      zipcode = userDetail.Item.zipcode.S;
+    }
+    res.say(`sun proof has been launched. your zipcode is ${zipcode}.`);
+    res.say('you can ask the uv index now. for example, you can say, what\'s the uv index now.');
+    res.shouldEndSession(false, 'you can ask the uv index now. for example, you can say, what\'s the uv index now.');
+    return res.send();
   });
 
   alexaApp.dictionary = { names: ['today', 'now', 'tomorrow'] };
@@ -49,13 +58,19 @@ module.exports = (alexaApp) => {
     ]
   }, async (req, res) => {
     const userId = req.getSession().details.userId;
-    if (_.isEmpty(userSession[userId])) {
+    let userDetail = {};
+    try {
+      userDetail = await serviceModel.getItemByUserId(userId);
+    } catch (e) {
+      console.log(e);
+    }
+    if (_.isEmpty(userDetail)) {
       res.say('Please launch the sun proof to get your location first.');
       res.say('You can do like this, Alexa, open sun proof.');
       return res.send();
     }
+    const zipcode = userDetail.Item.zipcode.S;
     try {
-      const zipcode = userSession[userId];
       const uvindex = await serviceModel.getUvIndexByZip(zipcode);
       const keyWord = serviceModel.uvIndexCheck(uvindex);
       res.say(`For zipcode ${zipcode}, now, the uv index is ${uvindex}.`).send();
@@ -75,13 +90,19 @@ module.exports = (alexaApp) => {
     ]
   }, async (req, res) => {
     const userId = req.getSession().details.userId;
-    if (_.isEmpty(userSession[userId])) {
+    let userDetail = {};
+    try {
+      userDetail = await serviceModel.getItemByUserId(userId);
+    } catch (e) {
+      console.log(e);
+    }
+    if (_.isEmpty(userDetail)) {
       res.say('Please launch the sun proof to get your location first.');
       res.say('You can do like this, Alexa, open sun proof.');
       return res.send();
     }
+    const zipcode = userDetail.Item.zipcode.S;
     try {
-      const zipcode = userSession[userId];
       const uvindex = await serviceModel.getUvIndexByZip(zipcode);
       const suggestions = serviceModel.uvIndexCheck(uvindex).suggestion;
       res.say(`for uv index ${uvindex}, there are ${suggestions.length + 1} suggestions.`);

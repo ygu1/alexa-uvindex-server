@@ -1,7 +1,79 @@
 import request from 'request';
 import _ from 'underscore';
-import moment from 'moment';
+import AWS from 'aws-sdk';
 import settings from '../settings';
+
+AWS.config.update({ region: settings.dynamodb.region });
+const dynamodb = new AWS.DynamoDB();
+const tableName = settings.dynamodb.tableName;
+
+module.exports.putItem = (item) => {
+  return new Promise((resolve, reject) => {
+    const params = {
+      Item: {
+        userId: {
+          S: item.userId
+        },
+        zipcode: {
+          S: item.zipcode
+        }
+      },
+      TableName: tableName,
+      ReturnConsumedCapacity: 'INDEXES'
+    };
+    dynamodb.putItem(params, (err, data) => {
+      if (err) {
+        return reject(err);
+      }
+      return resolve(data);
+    });
+  });
+};
+
+module.exports.updateItem = (item) => {
+  return new Promise((resolve, reject) => {
+    const params = {
+      TableName: tableName,
+      Key: {
+        userId: {
+          S: item.userId
+        }
+      },
+      ExpressionAttributeValues: {
+        ':val': {
+          S: item.zipcode
+        }
+      },
+      UpdateExpression: 'set zipcode = :val',
+      ReturnValues: 'ALL_NEW'
+    };
+    dynamodb.updateItem(params, (err, data) => {
+      if (err) {
+        return reject(err);
+      }
+      return resolve(data);
+    });
+  });
+};
+
+module.exports.getItemByUserId = (userId) => {
+  return new Promise((resolve, reject) => {
+    const params = {
+      Key: {
+        userId: {
+          S: userId
+        }
+      },
+      TableName: tableName
+    };
+    dynamodb.getItem(params, (err, data) => {
+      if (err) {
+        return reject(err);
+      }
+      return resolve(data);
+    });
+  });
+};
 
 module.exports.getZip = (apiEndpoint, consentToken, deviceId) => {
   return new Promise((resolve, reject) => {
@@ -22,56 +94,6 @@ module.exports.getZip = (apiEndpoint, consentToken, deviceId) => {
           return reject({ error: 'wrong response.' });
         }
         return resolve(result.postalCode);
-      } catch (e) {
-        return reject(e);
-      }
-    });
-  });
-};
-
-module.exports.zipToGeo = (zipcode) => {
-  return new Promise((resolve, reject) => {
-    const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${zipcode}&key=${settings.googlekey}`;
-    request(url, (error, res, body) => {
-      if (error) {
-        return reject(error);
-      }
-      try {
-        const result = JSON.parse(body);
-        if (result.status !== 'OK') {
-          return reject({ error: 'wrong response.' });
-        }
-        if (_.isEmpty(result.results[0].geometry.location)) {
-          return reject({ error: 'wrong response.' });
-        }
-        return resolve(result.results[0].geometry.location);
-      } catch (e) {
-        return reject(e);
-      }
-    });
-  });
-};
-
-module.exports.getUvIndex = (lat, lng, date) => {
-  return new Promise((resolve, reject) => {
-    const geoLocation = `${lat.toFixed(1)},${lng.toFixed(1)}`;
-    let time = null;
-    if (date !== 'current') {
-      time = `${moment.utc(date).format('YYYY-MM-DD')}Z`;
-    } else {
-      time = 'current';
-    }
-    const url = `http://api.openweathermap.org/v3/uvi/${geoLocation}/${time}.json?appid=${settings.weatherkey}`;
-    request(url, (error, res, body) => {
-      if (error) {
-        return reject(error);
-      }
-      try {
-        const result = JSON.parse(body);
-        if (!_.isEmpty(result.message)) {
-          return reject({ error: 'wrong response.' });
-        }
-        return resolve(result.data);
       } catch (e) {
         return reject(e);
       }
