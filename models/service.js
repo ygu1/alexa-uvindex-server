@@ -121,6 +121,26 @@ module.exports.getUvIndexByZip = (zipcode) => {
   });
 };
 
+module.exports.getUvIndexByLocation = (city, state) => {
+  return new Promise((resolve, reject) => {
+    const url = `${settings.weather.url}${settings.weather.key}/conditions/q/${state}/${city}.json`;
+    request(url, (error, res, body) => {
+      if (error) {
+        return reject(error);
+      }
+      try {
+        const result = JSON.parse(body);
+        if (_.isEmpty(result.current_observation || result.current_observation.UV)) {
+          return reject({ error: 'wrong response.' });
+        }
+        return resolve(result.current_observation.UV);
+      } catch (e) {
+        return reject(e);
+      }
+    });
+  });
+};
+
 module.exports.uvIndexCheck = (uvindex) => {
   if (uvindex >= 0 && uvindex < 3) {
     return {

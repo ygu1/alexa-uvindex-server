@@ -2,6 +2,8 @@ import _ from 'underscore';
 import serviceModel from './service';
 
 module.exports = (alexaApp) => {
+  alexaApp.dictionary = { names: ['today', 'now', 'tomorrow'] };
+
   alexaApp.launch(async (req, res) => {
     let userDetail = {};
     let zipcode = '';
@@ -46,8 +48,6 @@ module.exports = (alexaApp) => {
     return res.send();
   });
 
-  alexaApp.dictionary = { names: ['today', 'now', 'tomorrow'] };
-
   alexaApp.intent('checkIntent', {
     slots: { NAME: 'LITERAL' },
     utterances: [
@@ -74,6 +74,29 @@ module.exports = (alexaApp) => {
       const uvindex = await serviceModel.getUvIndexByZip(zipcode);
       const keyWord = serviceModel.uvIndexCheck(uvindex);
       res.say(`For zipcode ${zipcode}, now, the uv index is ${uvindex}.`).send();
+      res.say(keyWord.keyWord);
+      return res.send();
+    } catch (e) {
+      console.log(e);
+      return res.say('sorry, can not get the uv index now.').send();
+    }
+  });
+
+  alexaApp.intent('locationIntent', {
+    slots: {
+      CITY: 'AMAZON.US_CITY',
+      STATE: 'AMAZON.US_STATE'
+    },
+    utterances: [
+      'what\'s the uv index in {CITY} {STATE}.'
+    ]
+  }, async (req, res) => {
+    const city = req.slot('CITY');
+    const state = req.slot('STATE');
+    try {
+      const uvindex = await serviceModel.getUvIndexByLocation(city, state);
+      const keyWord = serviceModel.uvIndexCheck(uvindex);
+      res.say(`the uv index in ${city}, ${state} now is ${uvindex}.`).send();
       res.say(keyWord.keyWord);
       return res.send();
     } catch (e) {
@@ -128,7 +151,8 @@ module.exports = (alexaApp) => {
 
   alexaApp.intent('AMAZON.HelpIntent', (request, response) => {
     response.say('there are the tips how to use sun proof.');
-    response.say('if you want to know today\'s uv index , for example, you can say: what\'s the uv index now.');
+    response.say('if you want to know the uv index for your current location, for example, you can say: what\'s the uv index now.');
+    response.say('if you want to know the uv index for another location, for example, you can say: what\'s the uv index in seattle, washington.');
     response.say('if you want to get some protection tips, for example, you can say: give me some protection tips.');
     response.say('what can i do for you now?');
     return response.shouldEndSession(false).send();
